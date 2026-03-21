@@ -1,0 +1,84 @@
+blackboard:
+  project: gstack-improvements
+  created_at: '2026-03-21T10:00:00Z'
+  description: >
+    Shared coordination state for 3 agents improving gstack.
+    This file is the single source of truth. Agents read it before acting
+    and write their plans/results here. The control shell mediates access.
+
+agents:
+  agent_a:
+    task: Add shared state store for cross-skill communication
+    status: planned
+    files:
+    - browse/src/commands.ts
+    - browse/src/server.ts
+    - browse/src/meta-commands.ts
+    - browse/src/state-manager.ts (new)
+    - SKILL.md.tmpl
+    interfaces_provided:
+    - stateSet
+    - stateGet
+    - stateList
+    - stateClear
+    - /state/* endpoints
+    interfaces_needed:
+    - CommandDefinition (from Agent B)
+    - CommandResponse (from Agent B)
+    registered_at: '2026-03-21T10:00:01Z'
+
+  agent_b:
+    task: Add TypeScript types to the command protocol
+    status: planned
+    files:
+    - browse/src/types.ts (new)
+    - browse/src/commands.ts
+    - browse/src/server.ts
+    - browse/src/read-commands.ts
+    - browse/src/write-commands.ts
+    interfaces_provided:
+    - CommandDefinition
+    - CommandResponse
+    - ErrorResponse
+    - COMMAND_REGISTRY
+    interfaces_needed: []
+    registered_at: '2026-03-21T10:00:02Z'
+
+  agent_c:
+    task: Write integration tests for the skill pipeline
+    status: planned
+    files:
+    - test/pipeline-integration.test.ts (new)
+    - test/helpers/pipeline-utils.ts (new)
+    interfaces_provided:
+    - integration test suite
+    interfaces_needed:
+    - CommandDefinition (from Agent B)
+    - COMMAND_REGISTRY (from Agent B)
+    - state command (from Agent A)
+    registered_at: '2026-03-21T10:00:03Z'
+
+execution_order:
+- agent_b
+- agent_a
+- agent_c
+execution_order_set_at: '2026-03-21T10:00:04Z'
+
+# ========================================================================
+# CONFLICT DETECTION OUTPUT (what the control shell found):
+#
+#   1. FILE OVERLAP: [agent_a, agent_b] both touch:
+#      - browse/src/commands.ts
+#      - browse/src/server.ts
+#
+#   2. UNMET DEPENDENCY (without ordering):
+#      - agent_a needs "CommandDefinition (from Agent B)"
+#      - agent_a needs "CommandResponse (from Agent B)"
+#      - agent_c needs "CommandDefinition (from Agent B)"
+#      - agent_c needs "COMMAND_REGISTRY (from Agent B)"
+#      - agent_c needs "state command (from Agent A)"
+#
+#   RESOLUTION: Sequential execution: agent_b → agent_a → agent_c
+#   This ensures B's types exist before A uses them, and both A and B
+#   finish before C writes tests against their combined output.
+# ========================================================================

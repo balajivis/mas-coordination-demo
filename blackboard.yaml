@@ -1,0 +1,16 @@
+blackboard:
+  project: gstack-improvements
+  created_at: null  # set by control_shell.py at runtime
+  description: >
+    Shared coordination state for 3 agents improving gstack.
+    This file is the single source of truth. Agents read it before acting
+    and write their plans/results here. The control shell mediates access.
+
+agents: {}
+# Populated during Phase 1 (planning). Example:
+#   agent_b:
+#     task: "Add TypeScript types to the command protocol"
+#     status: planned
+#     files: [browse/src/types.ts, browse/src/commands.ts, ...]
+#     interfaces_provided: [CommandDefinition, CommandResponse, COMMAND_REGISTRY]
+#     interfaces_needed: []

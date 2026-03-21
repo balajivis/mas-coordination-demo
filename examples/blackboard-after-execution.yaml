@@ -1,0 +1,144 @@
+blackboard:
+  project: gstack-improvements
+  created_at: '2026-03-21T10:00:00Z'
+  description: >
+    Shared coordination state for 3 agents improving gstack.
+    This file is the single source of truth. Agents read it before acting
+    and write their plans/results here. The control shell mediates access.
+
+agents:
+  agent_b:
+    task: Add TypeScript types to the command protocol
+    status: done
+    files:
+    - browse/src/types.ts (new)
+    - browse/src/commands.ts
+    - browse/src/server.ts
+    - browse/src/read-commands.ts
+    - browse/src/write-commands.ts
+    interfaces_provided:
+    - CommandDefinition
+    - CommandResponse
+    - ErrorResponse
+    - COMMAND_REGISTRY
+    interfaces_needed: []
+    registered_at: '2026-03-21T10:00:02Z'
+    started_at: '2026-03-21T10:01:00Z'
+    completed_at: '2026-03-21T10:03:12Z'
+    files_changed:
+    - browse/src/types.ts (new)
+    - browse/src/commands.ts
+    - browse/src/server.ts
+    - browse/src/read-commands.ts
+    - browse/src/write-commands.ts
+    notes: >
+      Created types.ts with CommandDefinition, CommandResponse, ErrorResponse.
+      Restructured commands.ts from Set<string> to Map<string, CommandDefinition>.
+      Kept backward-compatible Set exports. Updated server.ts response envelope.
+
+  agent_a:
+    task: Add shared state store for cross-skill communication
+    status: done
+    files:
+    - browse/src/commands.ts
+    - browse/src/server.ts
+    - browse/src/meta-commands.ts
+    - browse/src/state-manager.ts (new)
+    - SKILL.md.tmpl
+    interfaces_provided:
+    - stateSet
+    - stateGet
+    - stateList
+    - stateClear
+    - /state/* endpoints
+    interfaces_needed:
+    - CommandDefinition (from Agent B)
+    - CommandResponse (from Agent B)
+    registered_at: '2026-03-21T10:00:01Z'
+    started_at: '2026-03-21T10:03:15Z'
+    completed_at: '2026-03-21T10:05:41Z'
+    files_changed:
+    - browse/src/commands.ts
+    - browse/src/server.ts
+    - browse/src/meta-commands.ts
+    - browse/src/state-manager.ts (new)
+    - SKILL.md.tmpl
+    notes: >
+      Used Agent B's CommandDefinition type for the state command entry.
+      Used Agent B's CommandResponse envelope for /state/* endpoints.
+      Ran gen-skill-docs after modifying SKILL.md.tmpl (freshness preserved).
+
+  agent_c:
+    task: Write integration tests for the skill pipeline
+    status: done
+    files:
+    - test/pipeline-integration.test.ts (new)
+    - test/helpers/pipeline-utils.ts (new)
+    interfaces_provided:
+    - integration test suite
+    interfaces_needed:
+    - CommandDefinition (from Agent B)
+    - COMMAND_REGISTRY (from Agent B)
+    - state command (from Agent A)
+    registered_at: '2026-03-21T10:00:03Z'
+    started_at: '2026-03-21T10:05:45Z'
+    completed_at: '2026-03-21T10:08:02Z'
+    files_changed:
+    - test/pipeline-integration.test.ts (new)
+    - test/helpers/pipeline-utils.ts (new)
+    notes: >
+      46 tests, 46 pass, 0 fail.
+      Used COMMAND_REGISTRY (Map) from commands.ts — no hardcoded command lists.
+      Verified state command exists in registry.
+      Freshness check passes (Agent A regenerated docs).
+
+execution_order:
+- agent_b
+- agent_a
+- agent_c
+execution_order_set_at: '2026-03-21T10:00:04Z'
+
+quality_gates:
+  typescript_compiles_after_agent_b:
+    passed: true
+    details: TypeScript compilation clean
+    checked_at: '2026-03-21T10:03:14Z'
+  typescript_compiles_after_agent_a:
+    passed: true
+    details: TypeScript compilation clean
+    checked_at: '2026-03-21T10:05:43Z'
+  typescript_compiles:
+    passed: true
+    details: TypeScript compilation clean
+    checked_at: '2026-03-21T10:08:05Z'
+  tests_pass:
+    passed: true
+    details: All tests pass (including Agent C's 46 new integration tests)
+    checked_at: '2026-03-21T10:08:10Z'
+  gen_docs_fresh:
+    passed: true
+    details: Generated docs are fresh (Agent A ran gen-skill-docs after template edit)
+    checked_at: '2026-03-21T10:08:12Z'
+
+# ========================================================================
+# COMPARISON: Uncoordinated vs Coordinated
+#
+# Uncoordinated (failure demo):
+#   - 601 lines changed, 10 files
+#   - 2 duplicate implementations
+#   - 1 silent response format conflict
+#   - 7 failing tests (2 new + 5 existing)
+#   - 1 stale template
+#   - Runtime: ~5 min parallel
+#
+# Coordinated (this run):
+#   - ~550 lines changed, 10 files (similar volume)
+#   - 0 duplicate implementations (A used B's types)
+#   - 0 response format conflicts (A matched B's envelope)
+#   - 0 failing tests (C tested against actual state)
+#   - 0 stale templates (A regenerated after edit)
+#   - Runtime: ~8 min sequential
+#
+# The code volume is similar. The quality is completely different.
+# The extra 3 minutes bought: zero conflicts, zero failures.
+# ========================================================================
