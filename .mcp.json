@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "blackboard-channel": {
+      "command": "/Users/bv/.bun/bin/bun",
+      "args": ["blackboard-shim.ts"],
+      "env": {
+        "BLACKBOARD_SERVER": "http://127.0.0.1:8790"
+      }
+    },
+    "slack-channel": {
+      "command": "/Users/bv/.bun/bin/bun",
+      "args": ["slack-channel.ts"]
+    }
+  }
+}

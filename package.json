@@ -8,6 +8,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
+    "@slack/bolt": "^4.6.0",
+    "@slack/web-api": "^7.15.0",
     "yaml": "^2.7.0"
   },
   "devDependencies": {

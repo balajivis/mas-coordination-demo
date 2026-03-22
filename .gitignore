@@ -6,3 +6,4 @@ blackboard-live.yaml
 .DS_Store
 node_modules/
 bun.lock
+.env

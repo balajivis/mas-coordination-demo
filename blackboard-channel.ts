@@ -670,7 +670,7 @@ function renderAgents(agents) {
     return
   }
 
-  el.innerHTML = names.map(name => {
+  el.innerHTML = names.filter(n => agents[n] != null).map(name => {
     const a = agents[name]
     const status = a.status || 'unknown'
     const statusClass = 'status-' + status.replace(/[^a-z]/g, '')

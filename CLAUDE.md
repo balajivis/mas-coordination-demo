@@ -2,12 +2,41 @@
 
 You are an agent in a multi-agent coordination system. The blackboard YAML file is the shared state. Channels push notifications when the blackboard changes.
 
+## Architecture
+
+```
+                  ┌─────────────────────────┐
+                  │   BLACKBOARD SERVER      │  ← single process (port 8790)
+                  │   blackboard-server.ts   │
+                  │                          │
+                  │  • Holds shared YAML     │
+                  │  • Agent registry        │
+                  │  • Dashboard UI          │
+                  │  • Broadcasts on change  │
+                  └─────┬───────┬───────┬────┘
+                        │       │       │
+                   HTTP │  HTTP │  HTTP │  (broadcast notifications)
+                        │       │       │
+                  ┌─────┴──┐ ┌──┴────┐ ┌┴───────┐
+                  │ SHIM A │ │SHIM B │ │ SHIM C │  ← thin MCP stdio proxies
+                  │ (auto) │ │(auto) │ │ (auto) │
+                  └───┬────┘ └──┬────┘ └───┬────┘
+                   stdio     stdio      stdio
+                      │         │          │
+                  Claude A  Claude B   Claude C
+```
+
+- **blackboard-server.ts** runs independently as a single shared process
+- **blackboard-shim.ts** is spawned by Claude Code per-session (via `.mcp.json`)
+- Shims auto-assign a callback port and register with the server
+- When any agent writes, the server broadcasts to ALL shims
+- Each shim delivers the notification to its Claude session via `<channel>`
+
 ## Your Setup
 
-- **Blackboard file**: `blackboard-live.yaml` (in this directory)
-- **Template**: `blackboard.yaml` (read-only reference)
-- **Channel server**: `blackboard-channel.ts` (MCP server you're connected to)
-- **Dashboard**: `http://localhost:${BLACKBOARD_PORT}` (human-readable view)
+- **Blackboard file**: `blackboard-live.yaml` (owned by the server)
+- **Shared server**: `http://localhost:8790` (dashboard + API)
+- **Your shim**: auto-connected via `.mcp.json`
 
 ## On Startup — Register Yourself
 
@@ -26,9 +55,11 @@ When you start a session in this directory, **immediately**:
    log_entry: "<your_name> registered as <role>"
    ```
 
-Pick a unique agent name based on your role or assigned task. If one is suggested in a directive, use that.
+Pick a unique agent name based on your role or assigned task.
 
 ## When You Receive a `<channel>` Notification
+
+This means something changed on the blackboard. Another agent wrote, or a human posted a directive.
 
 1. Use `read_blackboard` to see what changed
 2. Check `directives:` for any tasks assigned to you (or to all agents)
@@ -44,11 +75,11 @@ Pick a unique agent name based on your role or assigned task. If one is suggeste
 - **Never modify** another agent's section
 - **Always add a log_entry** when writing to the blackboard
 - **Read before writing** — always `read_blackboard` first to avoid stale writes
-- Use `notify_agent` to ping other agents when you produce something they need
+- All agents share one blackboard — your writes automatically notify everyone
 
 ## Directive Protocol
 
-Directives come from humans (via the dashboard) or from a coordinator agent. They look like:
+Directives come from humans (via the dashboard) or from a coordinator agent:
 
 ```yaml
 directives:
@@ -60,32 +91,14 @@ directives:
 
 When you complete a directive, update its status by writing to the directives array.
 
-## Multi-Agent Communication
-
-To notify another agent that they should re-read the blackboard:
-
-```
-notify_agent(port: <their_port>, message: "new results available for you")
-```
-
-Agent ports are visible in the `agents:` section of the blackboard (if agents register their port).
-
-## Starting the Channel Server
+## Launching
 
 ```bash
-BLACKBOARD_PORT=8790 bun blackboard-channel.ts
+# 1. Start the shared server (one terminal, runs independently)
+BLACKBOARD_PORT=8790 bun blackboard-server.ts
+
+# 2. Launch Claude Code sessions (each gets its own shim automatically)
+claude --dangerously-load-development-channels server:blackboard-channel
 ```
 
-Each agent session needs its own port. Convention:
-- Port 8790: first agent
-- Port 8791: second agent
-- Port 8792: third agent
-- etc.
-
-## Launching a Claude Code Session with the Channel
-
-```bash
-claude --dangerously-load-development-channels blackboard-channel
-```
-
-Or configure in `.claude/settings.json`.
+Each Claude Code session gets its own shim with an auto-assigned callback port. No port management needed.

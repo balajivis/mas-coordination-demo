@@ -1,25 +1,35 @@
 # MAS Blackboard — Channel-Based Multi-Agent Coordination
 
-Coordinate multiple Claude Code sessions through a shared YAML blackboard. No Python control shell — agents communicate via MCP channels and a shared file.
+Coordinate multiple Claude Code sessions through a shared YAML blackboard. One server, N agents, automatic broadcast on every write.
 
-## How It Works
+## Architecture
 
 ```
-Human (dashboard or editor)
-  │ posts directive to blackboard
-  │ agents get notified via channels
-  ▼
-blackboard-live.yaml ← agents read/write via MCP tools
-  ▲
-  │ write_to_blackboard / read_blackboard
-  │
-Agent sessions (each with blackboard-channel on a unique port)
-  - Register on startup (prompted by CLAUDE.md)
-  - Receive <channel> notifications when blackboard changes
-  - Read blackboard, do work, write results back
+                  ┌─────────────────────────┐
+                  │   BLACKBOARD SERVER      │  ← single process (port 8790)
+                  │   blackboard-server.ts   │
+                  │                          │
+                  │  • Owns blackboard YAML  │
+                  │  • Agent callback registry│
+                  │  • Dashboard UI          │
+                  │  • Broadcasts on change  │
+                  └─────┬───────┬───────┬────┘
+                        │       │       │
+                   HTTP │  HTTP │  HTTP │  (broadcast notifications)
+                        │       │       │
+                  ┌─────┴──┐ ┌──┴────┐ ┌┴───────┐
+                  │ SHIM A │ │SHIM B │ │ SHIM C │  ← MCP stdio proxies
+                  │ (auto) │ │(auto) │ │ (auto) │
+                  └───┬────┘ └──┬────┘ └───┬────┘
+                   stdio     stdio      stdio
+                      │         │          │
+                  Claude A  Claude B   Claude C
 ```
 
-The YAML file IS the coordination mechanism. Channels are just the notification layer ("go re-read the file").
+- **blackboard-server.ts** — shared singleton, owns the YAML, broadcasts to all agents
+- **blackboard-shim.ts** — thin MCP proxy, spawned per Claude Code session via `.mcp.json`
+- Shims auto-assign callback ports and register with the server
+- Any write triggers broadcast to ALL connected agents
 
 ## Quick Start
 
@@ -27,73 +37,87 @@ The YAML file IS the coordination mechanism. Channels are just the notification 
 # Install dependencies (one time)
 bun install
 
-# Start the channel server
-BLACKBOARD_PORT=8790 bun blackboard-channel.ts
+# 1. Start the shared blackboard server
+BLACKBOARD_PORT=8790 bun blackboard-server.ts
 
-# Open the dashboard
+# 2. Open the dashboard
 open http://localhost:8790
 
-# In another terminal, launch a Claude Code session with the channel
-claude --dangerously-load-development-channels blackboard-channel
+# 3. Launch Claude Code sessions (any number — each gets its own shim)
+claude --dangerously-load-development-channels server:blackboard-channel
 ```
 
-The agent will read `CLAUDE.md`, register itself on the blackboard, and start listening for directives.
+Claude Code reads `.mcp.json`, spawns `blackboard-shim.ts` as an MCP subprocess, which auto-registers with the shared server. The agent reads `CLAUDE.md`, registers on the blackboard, and starts listening.
 
-## Multi-Agent Setup
+## How It Works
 
-Each agent session needs its own channel server on a unique port:
+1. **Shared server** runs independently on port 8790
+2. **Claude Code** spawns a shim per session (configured in `.mcp.json`)
+3. **Shim** auto-assigns a callback port, registers with the server
+4. **Agent writes** to blackboard via shim → shim POSTs to server → server broadcasts to ALL shims
+5. **Each shim** delivers `<channel>` notification to its Claude session
+6. **Dashboard** shows live state via WebSocket
+
+The YAML file is the coordination mechanism. HTTP is the transport. Channels are the notification layer.
+
+## How Channels Work
+
+Unlike regular MCP servers, channels declare the `claude/channel` capability, allowing push notifications into agent sessions. The `--dangerously-load-development-channels` flag is required during the research preview to bypass the curated allowlist.
+
+The `server:blackboard-channel` refers to the key in `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "blackboard-channel": {
+      "command": "bun",
+      "args": ["blackboard-shim.ts"],
+      "env": { "BLACKBOARD_SERVER": "http://127.0.0.1:8790" }
+    }
+  }
+}
+```
+
+To load both blackboard and Slack channels simultaneously:
 
 ```bash
-# Terminal 1 — agent A
-BLACKBOARD_PORT=8790 bun blackboard-channel.ts
-# Then: claude --dangerously-load-development-channels blackboard-channel
-
-# Terminal 2 — agent B
-BLACKBOARD_PORT=8791 bun blackboard-channel.ts
-# Then: claude --dangerously-load-development-channels blackboard-channel
-
-# Terminal 3 — agent C
-BLACKBOARD_PORT=8792 bun blackboard-channel.ts
-# Then: claude --dangerously-load-development-channels blackboard-channel
+claude --dangerously-load-development-channels server:blackboard-channel server:slack-channel
 ```
 
-All agents read/write the same `blackboard-live.yaml`. Post directives from the dashboard on any port.
-
-## MCP Tools
+## MCP Tools (via shim)
 
 | Tool | Description |
 |------|-------------|
 | `read_blackboard` | Read the full YAML state (or a specific section) |
-| `write_to_blackboard` | Write to a dot-path (e.g. `agents.researcher`), with optional log entry |
-| `notify_agent` | POST to another agent's port to trigger a `<channel>` notification |
+| `write_to_blackboard` | Write to a dot-path (e.g. `agents.researcher`), notifies all agents |
 
-## HTTP Endpoints
+## Server HTTP Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/` | GET | Dashboard UI (dark theme, live WebSocket updates) |
+| `/` | GET | Dashboard UI (dark theme, live WebSocket) |
 | `/state` | GET | Raw JSON state |
-| `/notify` | POST | Trigger a channel notification into this agent session |
-| `/directive` | POST | Post a new directive (used by dashboard input bar) |
-| `/ws` | WS | WebSocket for live dashboard updates |
+| `/agents` | GET | Registered agent callbacks (debug) |
+| `/register` | POST | Shim registers callback port |
+| `/unregister` | POST | Shim deregisters on shutdown |
+| `/read` | POST | Shim reads blackboard |
+| `/write` | POST | Shim writes blackboard (triggers broadcast) |
+| `/directive` | POST | Dashboard posts directive (triggers broadcast) |
+| `/ws` | WS | Live dashboard updates |
 
 ## File Structure
 
 ```
 mas-coordination-demo/
-├── blackboard-channel.ts   # MCP server + HTTP + embedded dashboard
+├── blackboard-server.ts    # Shared singleton (run independently)
+├── blackboard-shim.ts      # Per-agent MCP proxy (spawned by Claude Code)
+├── blackboard-channel.ts   # Legacy: monolithic version (kept for reference)
 ├── blackboard.yaml         # Template (copied to blackboard-live.yaml on first run)
+├── .mcp.json               # MCP server config (points to shim)
 ├── CLAUDE.md               # Agent registration protocol
 ├── package.json            # Dependencies
-├── docs/
-│   ├── POSTMORTEM.md       # Original uncoordinated failure analysis
-│   ├── experiment-plan.md  # Original experiment design
-│   ├── slack-channel-setup.md
-│   └── examples/           # Example blackboard states
-└── legacy/
-    ├── control_shell.py    # Old Python sequential orchestrator
-    ├── blackboard_lib.py   # Old Python blackboard class
-    └── agent_prompts.py    # Old Python agent prompts
+├── docs/                   # Documentation
+└── legacy/                 # Old Python control shell
 ```
 
 ## Blackboard Structure
@@ -119,6 +143,6 @@ log:
 
 ## Background
 
-This replaces the sequential Python control shell (`legacy/`) with a channel-based approach. The original demo showed how 3 uncoordinated agents produced 601 lines of collectively-broken code. See `docs/POSTMORTEM.md` for that story.
+This implements the classical blackboard architecture (Erman et al., 1980) using MCP channels. The original demo showed how 3 uncoordinated agents produced 601 lines of collectively-broken code. See `docs/POSTMORTEM.md`.
 
-The key architectural shift: there is no separate orchestrator process. The "control shell" is just another Claude Code agent session with a coordination prompt. All agents are peers communicating through the shared blackboard.
+The key insight: the blackboard is a shared singleton, not N copies sharing a file. The server owns the state and broadcasts to all observers — exactly like the original Hearsay-II architecture.
