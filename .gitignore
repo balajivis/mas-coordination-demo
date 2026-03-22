@@ -4,3 +4,5 @@ __pycache__/
 blackboard-live.yaml
 *.yaml.tmp
 .DS_Store
+node_modules/
+bun.lock
