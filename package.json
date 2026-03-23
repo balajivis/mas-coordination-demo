@@ -2,9 +2,10 @@
   "name": "mas-blackboard-channel",
   "version": "0.1.0",
   "type": "module",
-  "bin": "./blackboard-channel.ts",
   "scripts": {
-    "start": "bun install --no-summary && BLACKBOARD_PORT=8790 bun blackboard-channel.ts"
+    "start:server": "bun install --no-summary && BLACKBOARD_PORT=8790 bun blackboard-server.ts",
+    "start:shim": "bun install --no-summary && bun blackboard-shim.ts",
+    "start:slack": "bun install --no-summary && bun slack-channel.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",

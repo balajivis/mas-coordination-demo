@@ -31,7 +31,24 @@ Coordinate multiple Claude Code sessions through a shared YAML blackboard. One s
 - Shims auto-assign callback ports and register with the server
 - Any write triggers broadcast to ALL connected agents
 
-## Quick Start
+## Install as Plugin (use from any directory)
+
+```bash
+# 1. Add the marketplace
+claude marketplace add https://raw.githubusercontent.com/balajivis/mas-coordination-demo/main/.claude-plugin/marketplace.json
+
+# 2. Install the plugin
+claude plugin install blackboard-channel@mas-blackboard --scope user
+
+# 3. Start the shared server (in any terminal)
+npx -y mas-blackboard-channel start:server
+# or clone the repo and run: bun blackboard-server.ts
+
+# 4. Launch Claude Code with the channel (from any directory)
+claude --dangerously-load-development-channels plugin:blackboard-channel@mas-blackboard
+```
+
+## Quick Start (from the repo)
 
 ```bash
 # Install dependencies (one time)
@@ -109,13 +126,16 @@ claude --dangerously-load-development-channels server:blackboard-channel server:
 
 ```
 mas-coordination-demo/
+├── .claude-plugin/
+│   ├── plugin.json         # Plugin metadata (for marketplace distribution)
+│   └── marketplace.json    # Self-hosted marketplace manifest
 ├── blackboard-server.ts    # Shared singleton (run independently)
 ├── blackboard-shim.ts      # Per-agent MCP proxy (spawned by Claude Code)
 ├── blackboard-channel.ts   # Legacy: monolithic version (kept for reference)
 ├── blackboard.yaml         # Template (copied to blackboard-live.yaml on first run)
 ├── .mcp.json               # MCP server config (points to shim)
 ├── CLAUDE.md               # Agent registration protocol
-├── package.json            # Dependencies
+├── package.json            # Dependencies + scripts
 ├── docs/                   # Documentation
 └── legacy/                 # Old Python control shell
 ```
