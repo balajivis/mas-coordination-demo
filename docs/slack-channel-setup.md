@@ -33,15 +33,9 @@ SLACK_SIGNING_SECRET=...          # from step 7
 bun add @slack/bolt @slack/web-api
 ```
 
-## Part 4: Register the MCP Server
+## Part 4: MCP Server Registration
 
-Start a Claude Code session in this directory and run:
-
-```
-/mcp add slack-channel /Users/bv/.bun/bin/bun slack-channel.ts
-```
-
-This only needs to be done once. It writes to `.mcp.json`.
+The Slack channel is already configured in `.mcp.json` — no manual registration needed. Just make sure you have the `.env` file with credentials from the steps above.
 
 ## Part 5: Launch and Test
 
@@ -92,8 +86,7 @@ The session receives a `<channel>` notification and Claude replies back via `rep
 ## Running Both Channels (Slack + Blackboard)
 
 ```bash
-claude --dangerously-load-development-channels server:slack-channel \
-       --dangerously-load-development-channels server:blackboard-channel
+claude --dangerously-load-development-channels server:blackboard-channel server:slack-channel
 ```
 
 ## How It Works

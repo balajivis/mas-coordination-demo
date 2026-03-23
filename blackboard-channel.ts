@@ -1,17 +1,17 @@
 #!/usr/bin/env bun
 /**
- * Blackboard Channel — MCP server for multi-agent coordination via shared YAML.
+ * DEPRECATED — This is the original monolithic implementation.
+ * It has been replaced by the split architecture:
+ *   - blackboard-server.ts  (shared singleton, owns YAML, broadcasts)
+ *   - blackboard-shim.ts    (thin per-agent MCP proxy)
  *
+ * See README.md for the current architecture. This file is kept for reference only.
+ *
+ * Original description:
  * Each agent session runs a copy on a unique port (env: BLACKBOARD_PORT).
  * Tools let agents read/write the blackboard. An HTTP endpoint receives
  * notifications from other agents or the dashboard. The dashboard is embedded
  * and served at GET /.
- *
- * Architecture:
- *   blackboard-live.yaml ← agents read/write via MCP tools
- *   POST /notify         → emits notifications/claude/channel into this session
- *   GET /                → serves the dashboard UI
- *   WebSocket /ws        → live dashboard updates
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'

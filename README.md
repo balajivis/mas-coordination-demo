@@ -33,38 +33,58 @@ Coordinate multiple Claude Code sessions through a shared YAML blackboard. One s
 
 ## Install as Plugin (use from any directory)
 
+For students and users who want the blackboard channel available in any project:
+
 ```bash
-# 1. Add the marketplace
+# 1. Add the marketplace (one time)
 claude marketplace add https://raw.githubusercontent.com/balajivis/mas-coordination-demo/main/.claude-plugin/marketplace.json
 
-# 2. Install the plugin
+# 2. Install the plugin (one time)
 claude plugin install blackboard-channel@mas-blackboard --scope user
+```
 
-# 3. Start the shared server (in any terminal)
-npx -y mas-blackboard-channel start:server
-# or clone the repo and run: bun blackboard-server.ts
+Then to use it:
 
-# 4. Launch Claude Code with the channel (from any directory)
+```bash
+# Terminal 1: clone and start the shared server
+git clone https://github.com/balajivis/mas-coordination-demo.git
+cd mas-coordination-demo
+bun install
+BLACKBOARD_PORT=8790 bun blackboard-server.ts
+```
+
+```bash
+# Terminal 2: open the dashboard
+open http://localhost:8790
+```
+
+```bash
+# Terminal 3+: launch Claude Code from ANY directory with the channel
+cd ~/my-project  # can be any directory
 claude --dangerously-load-development-channels plugin:blackboard-channel@mas-blackboard
 ```
 
-## Quick Start (from the repo)
+Each session auto-registers with the shared server. Post directives from the dashboard and watch agents coordinate.
+
+## Quick Start (from the repo directly)
+
+If you're working inside the repo itself:
 
 ```bash
 # Install dependencies (one time)
 bun install
 
-# 1. Start the shared blackboard server
+# 1. Start the shared blackboard server (keep this terminal open)
 BLACKBOARD_PORT=8790 bun blackboard-server.ts
 
 # 2. Open the dashboard
 open http://localhost:8790
 
-# 3. Launch Claude Code sessions (any number — each gets its own shim)
+# 3. In new terminals, launch Claude Code sessions
 claude --dangerously-load-development-channels server:blackboard-channel
 ```
 
-Claude Code reads `.mcp.json`, spawns `blackboard-shim.ts` as an MCP subprocess, which auto-registers with the shared server. The agent reads `CLAUDE.md`, registers on the blackboard, and starts listening.
+When running from the repo, Claude Code reads `.mcp.json`, spawns `blackboard-shim.ts` as an MCP subprocess, which auto-registers with the shared server. The agent reads `CLAUDE.md`, registers on the blackboard, and starts listening.
 
 ## How It Works
 
@@ -81,14 +101,14 @@ The YAML file is the coordination mechanism. HTTP is the transport. Channels are
 
 Unlike regular MCP servers, channels declare the `claude/channel` capability, allowing push notifications into agent sessions. The `--dangerously-load-development-channels` flag is required during the research preview to bypass the curated allowlist.
 
-The `server:blackboard-channel` refers to the key in `.mcp.json`:
+The `server:blackboard-channel` refers to the key in `.mcp.json` (used when running from the repo):
 
 ```json
 {
   "mcpServers": {
     "blackboard-channel": {
       "command": "bun",
-      "args": ["blackboard-shim.ts"],
+      "args": ["run", "--cwd", "${CLAUDE_PLUGIN_ROOT}", "--shell=bun", "--silent", "start:shim"],
       "env": { "BLACKBOARD_SERVER": "http://127.0.0.1:8790" }
     }
   }

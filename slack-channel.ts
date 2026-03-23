@@ -16,7 +16,7 @@
  *   SLACK_SIGNING_SECRET — Basic Information > App Credentials
  *
  * Usage:
- *   claude --dangerously-load-development-channels slack-channel
+ *   claude --dangerously-load-development-channels server:slack-channel
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
