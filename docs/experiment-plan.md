@@ -114,7 +114,7 @@ Every test Agent C writes will fail against A's or B's code.
 
 ### Step 1: Create branches
 ```bash
-cd /Users/bv/Code/active/testbed_mas/gstack
+cd <your-gstack-clone>
 git checkout -b agent-a/shared-state
 git checkout main && git checkout -b agent-b/typed-commands
 git checkout main && git checkout -b agent-c/skill-tests
@@ -142,7 +142,7 @@ Show the class:
 
 ## Workshop Talking Points
 
-1. **"It's not the model."** All three agents used Claude Opus. The model isn't wrong. The coordination is missing.
+1. **"It's not the model."** All three agents used Claude Sonnet 4.6. The model isn't wrong. The coordination is missing.
 
 2. **"gstack has 16,000 stars."** The most popular AI dev tool of the month. And it doesn't have inter-skill coordination either. Same architectural gap.
 

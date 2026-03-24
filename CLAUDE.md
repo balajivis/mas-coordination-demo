@@ -94,11 +94,8 @@ When you complete a directive, update its status by writing to the directives ar
 ## Launching
 
 ```bash
-# 1. Start the shared server (one terminal, runs independently)
-BLACKBOARD_PORT=8790 bun blackboard-server.ts
-
-# 2. Launch Claude Code sessions (each gets its own shim automatically)
+# Launch Claude Code with the blackboard channel
 claude --dangerously-load-development-channels server:blackboard-channel
 ```
 
-Each Claude Code session gets its own shim with an auto-assigned callback port. No port management needed.
+The shim auto-starts the server if it's not running. `blackboard-live.yaml` is created in your current directory. Dashboard at `http://localhost:8790`.

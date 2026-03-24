@@ -31,60 +31,62 @@ Coordinate multiple Claude Code sessions through a shared YAML blackboard. One s
 - Shims auto-assign callback ports and register with the server
 - Any write triggers broadcast to ALL connected agents
 
-## Install as Plugin (use from any directory)
+## Setup (one time)
 
-For students and users who want the blackboard channel available in any project:
+### 1. Install Bun (if you don't have it)
 
 ```bash
-# 1. Add the marketplace (one time)
-claude marketplace add https://raw.githubusercontent.com/balajivis/mas-coordination-demo/main/.claude-plugin/marketplace.json
-
-# 2. Install the plugin (one time)
-claude plugin install blackboard-channel@mas-blackboard --scope user
+curl -fsSL https://bun.sh/install | bash
 ```
 
-Then to use it:
+### 2. Clone and install dependencies
 
 ```bash
-# Terminal 1: clone and start the shared server
 git clone https://github.com/balajivis/mas-coordination-demo.git
 cd mas-coordination-demo
 bun install
-BLACKBOARD_PORT=8790 bun blackboard-server.ts
 ```
 
+### 3. Register the MCP server globally
+
+This makes the blackboard channel available from **any directory**:
+
 ```bash
-# Terminal 2: open the dashboard
-open http://localhost:8790
+claude mcp add --scope user blackboard-channel \
+  bun /full/path/to/mas-coordination-demo/blackboard-shim.ts
 ```
 
-```bash
-# Terminal 3+: launch Claude Code from ANY directory with the channel
-cd ~/my-project  # can be any directory
-claude --dangerously-load-development-channels plugin:blackboard-channel@mas-blackboard
-```
+Replace `/full/path/to/` with your actual clone location. This writes to `~/.claude.json` (your global Claude Code config), so it only needs to be done once.
 
-Each session auto-registers with the shared server. Post directives from the dashboard and watch agents coordinate.
+## Quick Start
 
-## Quick Start (from the repo directly)
-
-If you're working inside the repo itself:
+From any project directory:
 
 ```bash
-# Install dependencies (one time)
-bun install
-
-# 1. Start the shared blackboard server (keep this terminal open)
-BLACKBOARD_PORT=8790 bun blackboard-server.ts
-
-# 2. Open the dashboard
-open http://localhost:8790
-
-# 3. In new terminals, launch Claude Code sessions
+# Launch Claude Code with the blackboard channel
 claude --dangerously-load-development-channels server:blackboard-channel
 ```
 
-When running from the repo, Claude Code reads `.mcp.json`, spawns `blackboard-shim.ts` as an MCP subprocess, which auto-registers with the shared server. The agent reads `CLAUDE.md`, registers on the blackboard, and starts listening.
+That's it. The shim auto-starts the server if it's not running. `blackboard-live.yaml` is created in your current project directory. Open the dashboard at `http://localhost:8790`.
+
+Launch more agents from the same directory in new terminals — they all connect to the same server and get notified on every write.
+
+### Why the long flag?
+
+Channels (push notifications into Claude Code) are a research preview feature. The `--dangerously-load-development-channels` flag is required until Anthropic graduates them. You can alias it:
+
+```bash
+alias claude-bb='claude --dangerously-load-development-channels server:blackboard-channel'
+```
+
+## Quick Start (from the repo directly)
+
+If you're working inside the repo itself, the `.mcp.json` already has the config — no global registration needed:
+
+```bash
+bun install
+claude --dangerously-load-development-channels server:blackboard-channel
+```
 
 ## How It Works
 
@@ -146,18 +148,14 @@ claude --dangerously-load-development-channels server:blackboard-channel server:
 
 ```
 mas-coordination-demo/
-├── .claude-plugin/
-│   ├── plugin.json         # Plugin metadata (for marketplace distribution)
-│   └── marketplace.json    # Self-hosted marketplace manifest
-├── blackboard-server.ts    # Shared singleton (run independently)
+├── blackboard-server.ts    # Shared singleton (owns YAML, broadcasts, dashboard)
 ├── blackboard-shim.ts      # Per-agent MCP proxy (spawned by Claude Code)
-├── blackboard-channel.ts   # Legacy: monolithic version (kept for reference)
 ├── blackboard.yaml         # Template (copied to blackboard-live.yaml on first run)
 ├── .mcp.json               # MCP server config (points to shim)
 ├── CLAUDE.md               # Agent registration protocol
 ├── package.json            # Dependencies + scripts
-├── docs/                   # Documentation
-└── legacy/                 # Old Python control shell
+├── docs/                   # Documentation + roadmap
+└── legacy/                 # Old Python control shell (workshop reference)
 ```
 
 ## Blackboard Structure

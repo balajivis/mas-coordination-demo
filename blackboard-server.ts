@@ -21,7 +21,7 @@
  */
 
 import { readFileSync, writeFileSync, existsSync, copyFileSync, renameSync } from 'fs'
-import { join, dirname } from 'path'
+import { join, dirname, basename } from 'path'
 import YAML from 'yaml'
 import type { ServerWebSocket } from 'bun'
 
@@ -40,7 +40,7 @@ function ensureLive(): void {
   if (!existsSync(LIVE)) {
     if (!existsSync(TEMPLATE)) {
       writeFileSync(LIVE, YAML.stringify({
-        blackboard: { project: 'mas-coordination-demo', description: 'Shared state' },
+        blackboard: { project: basename(DIR), description: 'Shared state' },
         agents: {},
         directives: [],
         log: [],

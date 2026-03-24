@@ -7,3 +7,4 @@ blackboard-live.yaml
 node_modules/
 bun.lock
 .env
+.claude/settings.local.json

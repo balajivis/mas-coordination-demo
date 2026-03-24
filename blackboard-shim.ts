@@ -21,6 +21,8 @@ import {
   CallToolRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js'
 
+import { dirname, join } from 'path'
+
 const SERVER_URL = process.env.BLACKBOARD_SERVER ?? 'http://127.0.0.1:8790'
 const SHIM_PORT = Number(process.env.SHIM_PORT || 0) // 0 = auto-assign
 
@@ -214,4 +216,49 @@ async function unregister(): Promise<void> {
 process.on('SIGINT', async () => { await unregister(); process.exit(0) })
 process.on('SIGTERM', async () => { await unregister(); process.exit(0) })
 
+// --- Auto-start server if not running ---
+async function ensureServerRunning(): Promise<boolean> {
+  // Parse port from SERVER_URL
+  const serverPort = new URL(SERVER_URL).port || '8790'
+
+  // Try to reach the existing server
+  try {
+    const resp = await fetch(`${SERVER_URL}/state`, { signal: AbortSignal.timeout(1000) })
+    if (resp.ok) {
+      process.stderr.write(`blackboard-shim: server already running at ${SERVER_URL}\n`)
+      return true
+    }
+  } catch {
+    // Server not running — spawn it
+  }
+
+  process.stderr.write(`blackboard-shim: server not running, starting it...\n`)
+
+  const serverPath = join(dirname(new URL(import.meta.url).pathname), 'blackboard-server.ts')
+  const projectDir = process.cwd()
+
+  Bun.spawn(['bun', serverPath], {
+    env: { ...process.env, BLACKBOARD_DIR: projectDir, BLACKBOARD_PORT: serverPort },
+    stdio: ['ignore', 'ignore', 'ignore'],
+  })
+
+  // Wait for server to become ready (up to 10 retries, 500ms apart)
+  for (let i = 0; i < 10; i++) {
+    await Bun.sleep(500)
+    try {
+      const resp = await fetch(`${SERVER_URL}/state`, { signal: AbortSignal.timeout(1000) })
+      if (resp.ok) {
+        process.stderr.write(`blackboard-shim: server started (BLACKBOARD_DIR=${projectDir})\n`)
+        return true
+      }
+    } catch {
+      // Not ready yet
+    }
+  }
+
+  process.stderr.write(`blackboard-shim: WARNING — server did not start within 5s\n`)
+  return false
+}
+
+await ensureServerRunning()
 await register()
